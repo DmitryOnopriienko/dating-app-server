@@ -1,0 +1,6 @@
+spring:
+  application.name: dating-app
+
+  data:
+    mongodb:
+      uri: mongodb://root:toor@localhost:27017/dating?authSource=admin
