@@ -22,6 +22,8 @@ class UserRepository(private val mongoTemplate: ReactiveMongoTemplate) {
 
     fun findAll(): Mono<List<MongoUser>> = mongoTemplate.findAll(MongoUser::class.java).collectList()
 
+    fun findById(id: String): Mono<MongoUser> = mongoTemplate.findById(ObjectId(id), MongoUser::class.java)
+
     fun findByPhoneNumber(phoneNumber: String): Mono<MongoUser> =
         mongoTemplate.findOne(
             Query(Criteria.where(MongoUser::phoneNumber.name).`is`(phoneNumber)),
@@ -58,6 +60,37 @@ class UserRepository(private val mongoTemplate: ReactiveMongoTemplate) {
                 ),
                 MongoUser::class.java,
             ).collectList()
+        }
+    }
+
+    @Transactional
+    fun findNextToReactTo(userId: String): Mono<MongoUser> {
+        val usersToExclude = Flux.merge(
+            mongoTemplate.find(
+                Query(Criteria.where(MongoReaction::fromUserId.name).`is`(userId)),
+                MongoReaction::class.java,
+            ).mapNotNull { ObjectId(it.toUserId) },
+            mongoTemplate.find(
+                Query(
+                    Criteria.where(MongoReaction::toUserId.name).`is`(userId)
+                        .and(MongoReaction::type.name).`is`(DISLIKE)
+                ),
+                MongoReaction::class.java,
+            ).mapNotNull { ObjectId(it.fromUserId) },
+        ).collectList().map { it.toSet() }
+
+        return Mono.zip(
+            mongoTemplate.findById(ObjectId(userId), MongoUser::class.java),
+            usersToExclude,
+        ).flatMap { (user, usersToExclude) ->
+            mongoTemplate.findOne(
+                Query(
+                    Criteria.where(MongoUser::city.name).`is`(user.city)
+                        .and(MongoUser::id.name).nin(usersToExclude)
+                        .and(MongoUser::sex.name).ne(user.sex)
+                ),
+                MongoUser::class.java,
+            )
         }
     }
 

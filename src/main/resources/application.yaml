@@ -1,6 +1,5 @@
 spring:
   application.name: dating-app
-
   data:
     mongodb:
-      uri: mongodb://root:toor@localhost:27017/dating?authSource=admin
+      uri: mongodb://root:toor@mongo:27017/dating?authSource=admin
